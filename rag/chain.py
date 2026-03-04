@@ -9,9 +9,8 @@ import logging
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 
-from config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
+from config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS, TOP_K
 from rag.prompts import SYSTEM_PROMPT
 from rag.retriever import load_vectorstore, get_retriever
 
@@ -34,17 +33,21 @@ def create_llm():
 
 
 def format_docs(docs):
-    """Format retrieved documents into a single context string."""
-    return "\n\n---\n\n".join(doc.page_content for doc in docs)
+    """Format retrieved documents into a single context string with metadata."""
+    parts = []
+    for doc in docs:
+        meta = doc.metadata
+        header = f"[Kaynak: {meta.get('title', meta.get('source', '?'))} | Yıl: {meta.get('year', '?')} | Kategori: {meta.get('category_name', '?')}]"
+        parts.append(f"{header}\n{doc.page_content}")
+    return "\n\n---\n\n".join(parts)
 
 
 class RAGChain:
-    """RAG chain with conversation history and source tracking."""
+    """RAG chain with conversation history, source tracking, and dynamic filters."""
 
-    def __init__(self, filters: dict | None = None):
+    def __init__(self):
         self.llm = create_llm()
         self.vectorstore = load_vectorstore()
-        self.retriever = get_retriever(self.vectorstore, filters=filters)
         self.chat_history: list[tuple[str, str]] = []
         self._last_source_docs = []
 
@@ -54,18 +57,6 @@ class RAGChain:
             MessagesPlaceholder(variable_name="chat_history", optional=True),
             ("human", "{question}"),
         ])
-
-        # Build the chain
-        self.chain = (
-            {
-                "context": self.retriever | format_docs,
-                "question": RunnablePassthrough(),
-                "chat_history": lambda _: self._get_history_messages(),
-            }
-            | self.prompt
-            | self.llm
-            | StrOutputParser()
-        )
 
     def _get_history_messages(self):
         """Get recent chat history as message tuples."""
@@ -77,13 +68,33 @@ class RAGChain:
             messages.append(AIMessage(content=ai))
         return messages
 
-    def query(self, question: str) -> dict:
-        """Query with source document tracking."""
-        # Get source documents separately
-        self._last_source_docs = self.retriever.invoke(question)
+    def query(self, question: str, filters: dict | None = None) -> dict:
+        """
+        Query with source document tracking and dynamic filters.
 
-        # Run the chain
-        answer = self.chain.invoke(question)
+        Args:
+            question: User's question
+            filters: Optional metadata filters (year, category)
+        """
+        # Create retriever with current filters
+        retriever = get_retriever(self.vectorstore, filters=filters)
+
+        # Get source documents
+        self._last_source_docs = retriever.invoke(question)
+
+        # Build context
+        context = format_docs(self._last_source_docs)
+
+        # Build prompt with context
+        messages = self.prompt.invoke({
+            "context": context,
+            "question": question,
+            "chat_history": self._get_history_messages(),
+        })
+
+        # Get LLM response
+        response = self.llm.invoke(messages)
+        answer = response.content
 
         # Update history
         self.chat_history.append((question, answer))
@@ -94,21 +105,27 @@ class RAGChain:
         }
 
 
-def create_rag_chain(filters: dict | None = None) -> RAGChain:
+def create_rag_chain() -> RAGChain:
     """Create the full RAG chain."""
-    return RAGChain(filters=filters)
+    return RAGChain()
 
 
-def query_chain(chain: RAGChain, question: str, max_retries: int = 3) -> dict:
+def query_chain(chain: RAGChain, question: str, filters: dict | None = None, max_retries: int = 3) -> dict:
     """
     Query the RAG chain with retry logic for rate limits.
+
+    Args:
+        chain: RAGChain instance
+        question: User's question
+        filters: Optional metadata filters
+        max_retries: Number of retry attempts
 
     Returns:
         dict with 'answer' and 'source_documents'
     """
     for attempt in range(max_retries):
         try:
-            return chain.query(question)
+            return chain.query(question, filters=filters)
         except Exception as e:
             error_msg = str(e).lower()
             if "quota" in error_msg or "rate" in error_msg or "resource" in error_msg:

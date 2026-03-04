@@ -35,7 +35,7 @@ LLM_TEMPERATURE = 0.3
 LLM_MAX_TOKENS = 2048
 
 # RAG Settings
-TOP_K = 5
+TOP_K = 8
 COLLECTION_NAME = "tcmb_publications"
 
 # Scraper Settings

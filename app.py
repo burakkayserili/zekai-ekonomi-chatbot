@@ -208,7 +208,8 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
         with st.spinner("Düşünüyor..."):
             try:
                 chain = init_chain()
-                result = query_chain(chain, prompt)
+                filters = get_filters()
+                result = query_chain(chain, prompt, filters=filters)
 
                 answer = result["answer"]
                 source_docs = result["source_documents"]
