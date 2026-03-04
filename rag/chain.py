@@ -5,6 +5,7 @@ Uses modern LangChain Expression Language (LCEL).
 
 import time
 import logging
+from datetime import date
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -85,10 +86,15 @@ class RAGChain:
         # Build context
         context = format_docs(self._last_source_docs)
 
-        # Build prompt with context
+        # Build prompt with context and current date
+        today = date.today()
+        months_tr = {1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan", 5: "Mayıs", 6: "Haziran",
+                     7: "Temmuz", 8: "Ağustos", 9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"}
+        today_str = f"{today.day} {months_tr[today.month]} {today.year}"
         messages = self.prompt.invoke({
             "context": context,
             "question": question,
+            "today": today_str,
             "chat_history": self._get_history_messages(),
         })
 
