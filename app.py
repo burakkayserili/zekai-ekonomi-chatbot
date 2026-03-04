@@ -214,19 +214,27 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
                 answer = result["answer"]
                 source_docs = result["source_documents"]
 
-                # Extract source info
+                # Extract source info with readable names
                 sources = []
                 seen = set()
                 for doc in source_docs:
                     meta = doc.metadata
-                    source_str = f"{meta.get('title', meta.get('source', 'Bilinmeyen'))}"
-                    if meta.get('year'):
-                        source_str += f" ({meta['year']})"
-                    if meta.get('page'):
-                        source_str += f" - Sayfa {meta['page']}"
-                    if source_str not in seen:
-                        sources.append(source_str)
-                        seen.add(source_str)
+                    category = meta.get('category_name', '')
+                    year = meta.get('year', '')
+                    source_file = meta.get('source', '')
+
+                    # Create human-readable source key (category + year)
+                    source_key = f"{category}_{year}"
+                    if source_key in seen:
+                        continue
+                    seen.add(source_key)
+
+                    # Build readable source string
+                    if category and year:
+                        source_str = f"📄 {category} ({year})"
+                    else:
+                        source_str = f"📄 {source_file} ({year})"
+                    sources.append(source_str)
 
             except Exception as e:
                 answer = f"Bir hata oluştu: {str(e)}"

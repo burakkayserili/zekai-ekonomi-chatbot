@@ -32,7 +32,7 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 LLM_MODEL = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0.3
-LLM_MAX_TOKENS = 2048
+LLM_MAX_TOKENS = 4096
 
 # RAG Settings
 TOP_K = 8
