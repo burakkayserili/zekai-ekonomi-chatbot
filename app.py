@@ -9,6 +9,7 @@ from pathlib import Path
 from config import CHROMA_DIR, GOOGLE_API_KEY, APP_PASSWORD
 from rag.chain import create_rag_chain, query_chain
 from rag.prompts import WELCOME_MESSAGE
+from rag.source_utils import get_readable_source, get_source_key
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -223,17 +224,14 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
                     year = meta.get('year', '')
                     source_file = meta.get('source', '')
 
-                    # Create human-readable source key (category + year)
-                    source_key = f"{category}_{year}"
-                    if source_key in seen:
+                    # Deduplicate by category + year + period
+                    key = get_source_key(source_file, category, year)
+                    if key in seen:
                         continue
-                    seen.add(source_key)
+                    seen.add(key)
 
-                    # Build readable source string
-                    if category and year:
-                        source_str = f"📄 {category} ({year})"
-                    else:
-                        source_str = f"📄 {source_file} ({year})"
+                    # Build human-readable source string
+                    source_str = get_readable_source(source_file, category, year)
                     sources.append(source_str)
 
             except Exception as e:

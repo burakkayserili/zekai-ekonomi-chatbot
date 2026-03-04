@@ -14,6 +14,7 @@ from langchain_core.output_parsers import StrOutputParser
 from config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS, TOP_K
 from rag.prompts import SYSTEM_PROMPT
 from rag.retriever import load_vectorstore, get_retriever
+from rag.source_utils import get_readable_source
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,15 @@ def create_llm():
 
 
 def format_docs(docs):
-    """Format retrieved documents into a single context string with metadata."""
+    """Format retrieved documents into a single context string with readable metadata."""
     parts = []
     for doc in docs:
         meta = doc.metadata
-        header = f"[Kaynak: {meta.get('title', meta.get('source', '?'))} | Yıl: {meta.get('year', '?')} | Kategori: {meta.get('category_name', '?')}]"
+        source_file = meta.get('source', '?')
+        category = meta.get('category_name', '?')
+        year = meta.get('year', '?')
+        readable = get_readable_source(source_file, category, year).replace("📄 ", "")
+        header = f"[Kaynak: {readable}]"
         parts.append(f"{header}\n{doc.page_content}")
     return "\n\n---\n\n".join(parts)
 
