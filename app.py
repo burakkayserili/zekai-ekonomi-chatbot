@@ -79,8 +79,8 @@ with st.sidebar:
     # Year filter
     selected_years = st.multiselect(
         "Yıl Filtresi",
-        options=[2020, 2021, 2022, 2023, 2024, 2025],
-        default=[2020, 2021, 2022, 2023, 2024, 2025],
+        options=[2020, 2021, 2022, 2023, 2024, 2025, 2026],
+        default=[2020, 2021, 2022, 2023, 2024, 2025, 2026],
         help="Sadece seçili yıllardaki yayınlardan cevap aranır",
     )
 
@@ -159,7 +159,7 @@ def get_filters():
     """Build ChromaDB metadata filters from sidebar selections."""
     conditions = []
 
-    if selected_years and len(selected_years) < 6:
+    if selected_years and len(selected_years) < 7:
         conditions.append({"year": {"$in": selected_years}})
 
     cat_value = category_options.get(selected_category)

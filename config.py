@@ -16,7 +16,7 @@ TCMB_PUBLICATIONS_URL = TCMB_BASE_URL + "/wps/wcm/connect/TR/TCMB+TR/Main+Menu/Y
 
 # Year range for PDF downloads
 YEAR_START = 2020
-YEAR_END = 2026  # exclusive, so 2020-2025
+YEAR_END = 2027  # exclusive, so 2020-2026
 
 # PDF Processing
 CHUNK_SIZE = 1000
