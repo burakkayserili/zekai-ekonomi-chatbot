@@ -6,7 +6,7 @@ Streamlit Chat Interface
 import streamlit as st
 from pathlib import Path
 
-from config import CHROMA_DIR, GOOGLE_API_KEY
+from config import CHROMA_DIR, GOOGLE_API_KEY, APP_PASSWORD
 from rag.chain import create_rag_chain, query_chain
 from rag.prompts import WELCOME_MESSAGE
 
@@ -33,6 +33,40 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- Password Protection ---
+def check_password():
+    """Show login screen and verify password."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if st.session_state.authenticated:
+        return True
+
+    st.title("🧠 Zekai")
+    st.caption("JCR-ER Ekonomik Araştırmalar ve İş Geliştirme | TCMB Yayınlarına Dayalı Ekonomi Chatbot'u")
+    st.divider()
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("### 🔐 Giriş Yap")
+        password = st.text_input("Şifre", type="password", placeholder="Şifreyi giriniz...")
+        if st.button("Giriş", use_container_width=True):
+            if password == APP_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ Yanlış şifre. Lütfen tekrar deneyin.")
+        st.markdown(
+            "<p style='text-align: center; color: gray; font-size: 0.8em; margin-top: 20px;'>"
+            "Erişim için yetkili kişilerden şifreyi talep ediniz."
+            "</p>",
+            unsafe_allow_html=True,
+        )
+    return False
+
+if APP_PASSWORD and not check_password():
+    st.stop()
 
 # --- Header ---
 st.title("🧠 Zekai")
@@ -89,6 +123,14 @@ with st.sidebar:
         st.session_state.messages = []
         st.session_state.pop("chain", None)
         st.rerun()
+
+    # Logout button
+    if APP_PASSWORD:
+        if st.button("🚪 Çıkış Yap", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.messages = []
+            st.session_state.pop("chain", None)
+            st.rerun()
 
 # --- Check Prerequisites ---
 if not GOOGLE_API_KEY:

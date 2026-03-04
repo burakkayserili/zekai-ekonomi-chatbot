@@ -25,6 +25,9 @@ CHUNK_OVERLAP = 200
 # Embedding Model (Turkish-specific, free, local)
 EMBEDDING_MODEL = "emrecan/bert-base-turkish-cased-mean-nli-stsb-tr"
 
+# App Password (access control)
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+
 # LLM (Google Gemini free tier)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 LLM_MODEL = "gemini-2.5-flash"
