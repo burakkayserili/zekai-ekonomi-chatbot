@@ -6,7 +6,6 @@ __pycache__/
 
 # Data (too large for git)
 data/pdfs/
-chroma_db/
 data/metadata.json
 
 # Temp
