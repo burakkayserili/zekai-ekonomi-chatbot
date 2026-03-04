@@ -1,0 +1,17 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Data (too large for git)
+data/pdfs/
+chroma_db/
+data/metadata.json
+
+# Temp
+.gh_config/
+.claude/
+
+# OS
+.DS_Store
