@@ -1,6 +1,6 @@
 # Zekai - TCMB Ekonomi Chatbot'u
 
-**JCR-ER Ekonomik Araştırmalar ve İş Geliştirme** tarafından geliştirilen, Türkiye Cumhuriyet Merkez Bankası (TCMB) yayınlarına dayalı yapay zeka ekonomi asistanı.
+Türkiye Cumhuriyet Merkez Bankası (TCMB) yayınlarına dayalı yapay zeka ekonomi asistanı.
 
 Zekai; enflasyon raporları, finansal istikrar raporları, para politikası metinleri ve diğer TCMB yayınlarını kullanarak Türkiye ekonomisi hakkındaki sorularınızı yanıtlar.
 
