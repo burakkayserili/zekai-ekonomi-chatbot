@@ -74,6 +74,42 @@ class RAGChain:
             messages.append(AIMessage(content=ai))
         return messages
 
+    def _detect_category(self, question: str) -> str | None:
+        """Detect if user is asking about a specific TCMB publication category."""
+        q = question.lower()
+        if "enflasyon rapor" in q:
+            return "enflasyon_raporu"
+        if "finansal istikrar" in q:
+            return "finansal_istikrar"
+        if "fiyat gelişme" in q or "aylık fiyat" in q:
+            return "aylik_fiyat"
+        if "para politika" in q:
+            return "para_politikasi"
+        return None
+
+    def _detect_recency(self, question: str) -> bool:
+        """Detect if user is asking about the most recent/current data."""
+        q = question.lower()
+        recency_keywords = [
+            "en güncel", "en son", "en yeni", "son rapor",
+            "güncel rapor", "son yayın", "en yakın",
+            "şu anki", "mevcut", "son dönem",
+        ]
+        return any(kw in q for kw in recency_keywords)
+
+    def _merge_filters(self, filters: dict | None, extra: dict) -> dict:
+        """Merge extra filter conditions into existing filters."""
+        if not filters:
+            return extra
+        # Combine with $and
+        conditions = []
+        if "$and" in filters:
+            conditions.extend(filters["$and"])
+        else:
+            conditions.append(filters)
+        conditions.append(extra)
+        return {"$and": conditions}
+
     def query(self, question: str, filters: dict | None = None) -> dict:
         """
         Query with source document tracking and dynamic filters.
@@ -82,6 +118,17 @@ class RAGChain:
             question: User's question
             filters: Optional metadata filters (year, category)
         """
+        # Auto-detect category from question
+        detected_cat = self._detect_category(question)
+        if detected_cat:
+            filters = self._merge_filters(filters, {"category": detected_cat})
+
+        # Auto-detect recency: if user asks for "en güncel", limit to last 2 years
+        if self._detect_recency(question):
+            current_year = date.today().year
+            recent_years = [current_year, current_year - 1]
+            filters = self._merge_filters(filters, {"year": {"$in": recent_years}})
+
         # Create retriever with current filters
         retriever = get_retriever(self.vectorstore, filters=filters)
 

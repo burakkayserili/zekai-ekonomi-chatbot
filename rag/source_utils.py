@@ -1,15 +1,15 @@
 """
 Utility to convert raw PDF filenames into human-readable Turkish source names.
-Extracts quarter and month information from TCMB publication filenames.
+Uses TCMB's official naming convention (e.g., Enflasyon Raporu 2026-I).
 """
 
 import re
 
 
-# Roman numeral to Turkish quarter name
-QUARTER_MAP = {
-    "i": "1. Çeyrek", "ii": "2. Çeyrek", "iii": "3. Çeyrek", "iv": "4. Çeyrek",
-    "1": "1. Çeyrek", "2": "2. Çeyrek", "3": "3. Çeyrek", "4": "4. Çeyrek",
+# Roman numeral mapping
+ROMAN_MAP = {
+    "i": "I", "ii": "II", "iii": "III", "iv": "IV",
+    "1": "I", "2": "II", "3": "III", "4": "IV",
 }
 
 # Turkish month names for aylık fiyat reports
@@ -23,21 +23,40 @@ MONTH_KEYWORDS = {
 }
 
 
-def extract_quarter(filename: str) -> str | None:
-    """Extract quarter from enflasyon/finansal report filenames."""
+def extract_roman_numeral(filename: str) -> str | None:
+    """
+    Extract report number as Roman numeral from filename.
+
+    Patterns handled:
+        enf25_iii_tam.pdf → III
+        1b25_iv.pdf → IV
+        2b26_i.pdf → I
+        ki25_ii.pdf → II
+        enf_2024-III_tam.pdf → III
+        enf_2024-I_tam.pdf → I
+        1b20-3.pdf → III
+        ki20-4.pdf → IV
+    """
     name = filename.lower().replace(".pdf", "")
 
-    # Pattern: enf25_iii_tam, 1b25_iii, 2b25_iv, ki25_ii
-    m = re.search(r'[_\-](i{1,3}v?|iv|[1-4])(?:[_\-]|$)', name)
+    # Pattern: _i, _ii, _iii, _iv (underscore + roman)
+    m = re.search(r'[_](iv|iii|ii|i)(?:[_]|$)', name)
     if m:
-        q = m.group(1).lower()
-        return QUARTER_MAP.get(q)
+        return ROMAN_MAP.get(m.group(1))
 
-    # Pattern: enf_2024-III_tam, ki_2024-I
-    m = re.search(r'[\-_](I{1,3}V?|IV|[1-4])(?:[\-_]|$)', filename.replace(".pdf", ""))
+    # Pattern: -1, -2, -3, -4 (dash + number, older format like 1b20-3)
+    m = re.search(r'-([1-4])(?:$)', name)
     if m:
-        q = m.group(1).lower()
-        return QUARTER_MAP.get(q)
+        return ROMAN_MAP.get(m.group(1))
+
+    # Pattern: -III, -I etc. (dash + uppercase roman, like enf_2024-III)
+    m = re.search(r'-(IV|III|II|I)(?:[_]|$)', filename.replace(".pdf", ""))
+    if m:
+        return ROMAN_MAP.get(m.group(1).lower())
+
+    # Pattern: İV (Turkish İ variant)
+    if "İv" in filename or "İV" in filename:
+        return "IV"
 
     return None
 
@@ -49,31 +68,41 @@ def extract_month(filename: str) -> str | None:
     for key, month_name in MONTH_KEYWORDS.items():
         if key in name:
             return month_name
+
+    # Special cases: Haziran+Ayı, Nisan+Ayı etc.
+    for key, month_name in MONTH_KEYWORDS.items():
+        if key.capitalize() in filename:
+            return month_name
+
     return None
 
 
 def get_readable_source(source_file: str, category_name: str, year: int | str) -> str:
     """
-    Convert raw filename + metadata to a readable source string.
+    Convert raw filename + metadata to TCMB official naming format.
 
     Examples:
-        enf25_iii_tam.pdf + Enflasyon Raporu + 2025 → "Enflasyon Raporu (2025, 3. Çeyrek)"
-        afiyatmart25.pdf + Aylik Fiyat + 2025 → "Aylık Fiyat Gelişmeleri (2025, Mart)"
-        Tam+Metin.pdf + Finansal Istikrar + 2024 → "Finansal İstikrar Raporu (2024)"
-        2025_Para_Politikası.pdf + Para Politikasi + 2025 → "Para Politikası Metni (2025)"
+        enf25_iii_tam.pdf → "📄 Enflasyon Raporu 2025-III"
+        1b26_i.pdf → "📄 Enflasyon Raporu 2026-I"
+        afiyatmart25.pdf → "📄 Aylık Fiyat Gelişmeleri (Mart 2025)"
+        Tam+Metin.pdf (finansal) → "📄 Finansal İstikrar Raporu (2024)"
+        2025_Para_Politikası.pdf → "📄 Para Politikası Metni (2025)"
     """
     if not category_name or not year:
         return f"📄 {source_file} ({year})"
 
     # Try to extract period info
-    quarter = extract_quarter(source_file)
+    roman = extract_roman_numeral(source_file)
     month = extract_month(source_file)
 
-    # Build the display string
-    if quarter:
-        return f"📄 {category_name} ({year}, {quarter})"
+    # Build the display string based on category
+    if roman and "nflasyon" in category_name:
+        # Enflasyon Raporu 2026-I format
+        return f"📄 Enflasyon Raporu {year}-{roman}"
+    elif roman:
+        return f"📄 {category_name} {year}-{roman}"
     elif month:
-        return f"📄 {category_name} ({year}, {month})"
+        return f"📄 {category_name} ({month} {year})"
     else:
         return f"📄 {category_name} ({year})"
 
@@ -81,9 +110,9 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
 def get_source_key(source_file: str, category_name: str, year: int | str) -> str:
     """
     Create a unique key for deduplication.
-    Same category + year + quarter/month = same source.
+    Groups all sections (1b, 2b, 3b, enf_tam, ki) of the same report together.
     """
-    quarter = extract_quarter(source_file)
+    roman = extract_roman_numeral(source_file)
     month = extract_month(source_file)
-    period = quarter or month or ""
+    period = roman or month or ""
     return f"{category_name}_{year}_{period}"
