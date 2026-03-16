@@ -23,7 +23,7 @@ def load_vectorstore() -> Chroma:
 class RecencyAwareRetriever:
     """
     Custom retriever that fetches extra documents then prioritizes recent ones.
-    Fetches 2x documents, sorts by year (newest first), returns top_k.
+    Fetches 3x documents, scores by relevance + recency, returns top_k.
     """
 
     def __init__(self, vectorstore: Chroma, top_k: int = TOP_K, filters: dict | None = None):
@@ -33,26 +33,47 @@ class RecencyAwareRetriever:
 
     def invoke(self, query: str) -> list[Document]:
         """Retrieve documents with recency boost."""
-        # Fetch 2x more documents than needed
-        fetch_k = self.top_k * 2
+        # Fetch 3x more documents than needed for better reranking
+        fetch_k = self.top_k * 3
         search_kwargs = {"k": fetch_k}
         if self.filters:
             search_kwargs["filter"] = self.filters
 
-        retriever = self.vectorstore.as_retriever(search_kwargs=search_kwargs)
-        docs = retriever.invoke(query)
+        # Use similarity_search_with_relevance_scores for scoring
+        filter_arg = self.filters if self.filters else {}
+        try:
+            results = self.vectorstore.similarity_search_with_relevance_scores(
+                query, k=fetch_k, filter=filter_arg if filter_arg else None
+            )
+        except Exception:
+            # Fallback to basic retriever
+            retriever = self.vectorstore.as_retriever(search_kwargs=search_kwargs)
+            docs = retriever.invoke(query)
+            if not docs:
+                return docs
+            docs.sort(key=lambda d: -d.metadata.get("year", 0))
+            return docs[:self.top_k]
 
-        if not docs:
-            return docs
+        if not results:
+            return []
 
-        # Sort by year descending (newest first), keep relevance as tiebreaker
-        docs_with_index = [(i, doc) for i, doc in enumerate(docs)]
-        docs_with_index.sort(
-            key=lambda x: (-x[1].metadata.get("year", 0), x[0])
-        )
+        # Find the max year in results for normalization
+        max_year = max(doc.metadata.get("year", 2020) for doc, _ in results)
+        min_year = min(doc.metadata.get("year", 2020) for doc, _ in results)
+        year_range = max(max_year - min_year, 1)
 
-        # Return top_k after recency sort
-        return [doc for _, doc in docs_with_index[:self.top_k]]
+        # Combined score: relevance (0-1) + recency bonus (0-0.3)
+        scored = []
+        for doc, relevance_score in results:
+            year = doc.metadata.get("year", 2020)
+            recency_bonus = 0.3 * (year - min_year) / year_range
+            combined = relevance_score + recency_bonus
+            scored.append((combined, doc))
+
+        # Sort by combined score descending
+        scored.sort(key=lambda x: -x[0])
+
+        return [doc for _, doc in scored[:self.top_k]]
 
 
 def get_retriever(vectorstore: Chroma, top_k: int = TOP_K, filters: dict | None = None):

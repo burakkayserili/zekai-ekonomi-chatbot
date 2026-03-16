@@ -76,51 +76,86 @@ class RAGChain:
         return messages
 
     def _detect_category(self, question: str) -> str | None:
-        """Detect if user is asking about a specific TCMB publication category."""
+        """Detect publication category from question, including general terms."""
         q = question.lower()
+        # Specific report names first
         if "enflasyon rapor" in q:
             return "enflasyon_raporu"
         if "finansal istikrar" in q:
             return "finansal_istikrar"
         if "fiyat gelişme" in q or "aylık fiyat" in q:
             return "aylik_fiyat"
-        if "para politika" in q:
+        if "para politika" in q or "faiz" in q or "ppk" in q:
             return "para_politikasi"
         return None
 
-    def _detect_recency(self, question: str) -> int | None:
+    def _detect_recency(self, question: str) -> tuple[str, int] | None:
         """
         Detect if user is asking about recent data.
-        Returns number of years to look back, or None if not a recency query.
-
-        Examples:
-            "en güncel rapor" → 2 (last 2 years)
-            "son 3 yılda" → 3
-            "son 5 yıldaki" → 5
+        Returns ("latest", 0) for "en güncel" type queries (find absolute newest),
+        or ("years", N) for "son N yıl" type queries, or None.
         """
         q = question.lower()
 
         # Pattern: "son X yıl" → extract X
         m = re.search(r'son\s+(\d+)\s+yıl', q)
         if m:
-            return int(m.group(1))
+            return ("years", int(m.group(1)))
 
-        # Keywords for "most recent" → default 2 years
-        recency_keywords = [
+        # Keywords for "absolute latest" → find the newest available
+        latest_keywords = [
             "en güncel", "en son", "en yeni", "son rapor",
             "güncel rapor", "son yayın", "en yakın",
-            "şu anki", "mevcut", "son dönem",
         ]
-        if any(kw in q for kw in recency_keywords):
-            return 2
+        if any(kw in q for kw in latest_keywords):
+            return ("latest", 0)
+
+        # Keywords for "recent period" → last 2 years
+        recent_keywords = [
+            "şu anki", "mevcut", "son dönem",
+            "güncel durum", "son gelişme",
+        ]
+        if any(kw in q for kw in recent_keywords):
+            return ("years", 2)
 
         return None
+
+    def _find_max_year(self, filters: dict | None) -> int:
+        """Find the maximum year in the database for given filters."""
+        col = self.vectorstore._collection
+        current_year = date.today().year
+        # Check from current year downward
+        for y in range(current_year, 2019, -1):
+            check_filter = self._merge_filters(filters, {"year": y})
+            result = col.get(where=check_filter, limit=1)
+            if result and result["ids"]:
+                return y
+        return current_year
+
+    def _has_sidebar_year_filter(self, filters: dict | None) -> bool:
+        """Check if sidebar already has a year filter applied."""
+        if not filters:
+            return False
+        if "year" in filters:
+            return True
+        if "$and" in filters:
+            return any("year" in c for c in filters["$and"])
+        return False
+
+    def _has_sidebar_category_filter(self, filters: dict | None) -> bool:
+        """Check if sidebar already has a category filter applied."""
+        if not filters:
+            return False
+        if "category" in filters:
+            return True
+        if "$and" in filters:
+            return any("category" in c for c in filters["$and"])
+        return False
 
     def _merge_filters(self, filters: dict | None, extra: dict) -> dict:
         """Merge extra filter conditions into existing filters."""
         if not filters:
             return extra
-        # Combine with $and
         conditions = []
         if "$and" in filters:
             conditions.extend(filters["$and"])
@@ -135,25 +170,37 @@ class RAGChain:
 
         Args:
             question: User's question
-            filters: Optional metadata filters (year, category)
+            filters: Optional metadata filters from sidebar
         """
-        # Auto-detect category from question
-        detected_cat = self._detect_category(question)
-        if detected_cat:
-            filters = self._merge_filters(filters, {"category": detected_cat})
+        # Auto-detect category only if sidebar didn't set one
+        if not self._has_sidebar_category_filter(filters):
+            detected_cat = self._detect_category(question)
+            if detected_cat:
+                filters = self._merge_filters(filters, {"category": detected_cat})
 
-        # Auto-detect recency: filter to relevant years
-        lookback = self._detect_recency(question)
-        if lookback:
-            current_year = date.today().year
-            recent_years = list(range(current_year - lookback + 1, current_year + 1))
-            filters = self._merge_filters(filters, {"year": {"$in": recent_years}})
+        # Auto-detect recency only if sidebar didn't set specific years
+        if not self._has_sidebar_year_filter(filters):
+            recency = self._detect_recency(question)
+            if recency:
+                mode, n = recency
+                if mode == "latest":
+                    # Find the absolute newest year that has data for current filters
+                    max_year = self._find_max_year(filters)
+                    filters = self._merge_filters(filters, {"year": max_year})
+                else:  # mode == "years"
+                    current_year = date.today().year
+                    recent_years = list(range(current_year - n + 1, current_year + 1))
+                    filters = self._merge_filters(filters, {"year": {"$in": recent_years}})
 
         # Create retriever with current filters
         retriever = get_retriever(self.vectorstore, filters=filters)
-
-        # Get source documents
         self._last_source_docs = retriever.invoke(question)
+
+        # Fallback: if filters returned no results, retry without auto-filters
+        if not self._last_source_docs and filters:
+            logger.warning("Filtreli arama sonuç döndürmedi, filtresiz tekrar deneniyor.")
+            retriever_fallback = get_retriever(self.vectorstore, filters=None)
+            self._last_source_docs = retriever_fallback.invoke(question)
 
         # Build context
         context = format_docs(self._last_source_docs)
