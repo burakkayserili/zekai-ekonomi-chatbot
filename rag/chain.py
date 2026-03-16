@@ -3,6 +3,7 @@ RAG chain combining Gemini LLM with ChromaDB retriever.
 Uses modern LangChain Expression Language (LCEL).
 """
 
+import re
 import time
 import logging
 from datetime import date
@@ -87,15 +88,33 @@ class RAGChain:
             return "para_politikasi"
         return None
 
-    def _detect_recency(self, question: str) -> bool:
-        """Detect if user is asking about the most recent/current data."""
+    def _detect_recency(self, question: str) -> int | None:
+        """
+        Detect if user is asking about recent data.
+        Returns number of years to look back, or None if not a recency query.
+
+        Examples:
+            "en güncel rapor" → 2 (last 2 years)
+            "son 3 yılda" → 3
+            "son 5 yıldaki" → 5
+        """
         q = question.lower()
+
+        # Pattern: "son X yıl" → extract X
+        m = re.search(r'son\s+(\d+)\s+yıl', q)
+        if m:
+            return int(m.group(1))
+
+        # Keywords for "most recent" → default 2 years
         recency_keywords = [
             "en güncel", "en son", "en yeni", "son rapor",
             "güncel rapor", "son yayın", "en yakın",
             "şu anki", "mevcut", "son dönem",
         ]
-        return any(kw in q for kw in recency_keywords)
+        if any(kw in q for kw in recency_keywords):
+            return 2
+
+        return None
 
     def _merge_filters(self, filters: dict | None, extra: dict) -> dict:
         """Merge extra filter conditions into existing filters."""
@@ -123,10 +142,11 @@ class RAGChain:
         if detected_cat:
             filters = self._merge_filters(filters, {"category": detected_cat})
 
-        # Auto-detect recency: if user asks for "en güncel", limit to last 2 years
-        if self._detect_recency(question):
+        # Auto-detect recency: filter to relevant years
+        lookback = self._detect_recency(question)
+        if lookback:
             current_year = date.today().year
-            recent_years = [current_year, current_year - 1]
+            recent_years = list(range(current_year - lookback + 1, current_year + 1))
             filters = self._merge_filters(filters, {"year": {"$in": recent_years}})
 
         # Create retriever with current filters
