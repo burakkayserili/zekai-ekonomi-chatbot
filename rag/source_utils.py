@@ -77,6 +77,30 @@ def extract_month(filename: str) -> str | None:
     return None
 
 
+def extract_ekonomi_notu_number(filename: str) -> str | None:
+    """
+    Extract note number from ekonomi notu filenames.
+
+    Patterns:
+        en2501.pdf → 2025/01
+        en202523.pdf → 2025/23
+        en2018.pdf → 2020/18
+        en2417.pdf → 2024/17
+    """
+    name = filename.lower().replace(".pdf", "")
+    # Pattern: en + 4-digit year + note number (e.g., en202523)
+    m = re.match(r'^en(\d{4})(\d{2})$', name)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    # Pattern: en + 2-digit year + 2-digit note (e.g., en2501, en2018)
+    m = re.match(r'^en(\d{2})(\d{2})$', name)
+    if m:
+        yr = int(m.group(1))
+        full_year = 2000 + yr if yr < 50 else 1900 + yr
+        return f"{full_year}/{m.group(2)}"
+    return None
+
+
 def get_readable_source(source_file: str, category_name: str, year: int | str) -> str:
     """
     Convert raw filename + metadata to TCMB official naming format.
@@ -85,8 +109,8 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
         enf25_iii_tam.pdf → "📄 Enflasyon Raporu 2025-III"
         1b26_i.pdf → "📄 Enflasyon Raporu 2026-I"
         afiyatmart25.pdf → "📄 Aylık Fiyat Gelişmeleri (Mart 2025)"
+        en2501.pdf → "📄 Ekonomi Notu 2025/01"
         Tam+Metin.pdf (finansal) → "📄 Finansal İstikrar Raporu (2024)"
-        2025_Para_Politikası.pdf → "📄 Para Politikası Metni (2025)"
     """
     if not category_name or not year:
         return f"📄 {source_file} ({year})"
@@ -94,6 +118,7 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
     # Try to extract period info
     roman = extract_roman_numeral(source_file)
     month = extract_month(source_file)
+    ekon_no = extract_ekonomi_notu_number(source_file)
 
     # Build the display string based on category
     if roman and "nflasyon" in category_name:
@@ -101,6 +126,8 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
         return f"📄 Enflasyon Raporu {year}-{roman}"
     elif roman:
         return f"📄 {category_name} {year}-{roman}"
+    elif ekon_no:
+        return f"📄 Ekonomi Notu {ekon_no}"
     elif month:
         return f"📄 {category_name} ({month} {year})"
     else:

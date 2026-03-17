@@ -38,8 +38,8 @@ PUBLICATION_SOURCES = {
     },
     "ekonomi_notlari": {
         "name": "Ekonomi Notlari",
-        "path": f"{PUBLICATIONS_BASE}/Arastirma+Yayinlari/Ekonomi+Notlari",
-        "has_year_pages": False,
+        "path": "/wps/wcm/connect/tr/tcmb+tr/main+menu/yayinlar/arastirma+yayinlari/ekonomi+notlari",
+        "has_year_pages": True,
         "subfolder": "arastirma/ekonomi_notlari",
     },
     "yillik_rapor": {

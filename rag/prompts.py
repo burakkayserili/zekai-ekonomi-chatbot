@@ -12,6 +12,7 @@ Veritabanında 2020-2026 yılları arasındaki TCMB yayınları bulunmaktadır:
 - Finansal İstikrar Raporları
 - Aylık Fiyat Gelişmeleri (her ay yayınlanır)
 - Para Politikası Metinleri (PPK kararları)
+- Ekonomi Notları (TCMB araştırma yayınları — çeşitli ekonomik konularda derinlemesine analizler)
 
 Görevin:
 - Kullanıcıların Türkiye ekonomisi hakkındaki sorularını TCMB yayınlarına dayanarak yanıtlamak.
@@ -46,6 +47,7 @@ Sorularınız şunlarla ilgili olabilir:
 - 💰 Para politikası kararları
 - 🏛️ Finansal istikrar
 - 📈 Ekonomik gelişmeler
+- 📝 Ekonomi notları (TCMB araştırma yayınları)
 
 💡 **İpucu:** Sol menüden yıl ve yayın türü filtresi uygulayarak daha hedefli sonuçlar alabilirsiniz.
 

@@ -87,6 +87,8 @@ class RAGChain:
             return "aylik_fiyat"
         if "para politika" in q or "faiz" in q or "ppk" in q:
             return "para_politikasi"
+        if "ekonomi not" in q or "ekonomi notu" in q or "araştırma not" in q:
+            return "ekonomi_notlari"
         return None
 
     def _detect_recency(self, question: str) -> tuple[str, int] | None:
@@ -106,6 +108,7 @@ class RAGChain:
         latest_keywords = [
             "en güncel", "en son", "en yeni", "son rapor",
             "güncel rapor", "son yayın", "en yakın",
+            "son ekonomi not", "son enflasyon", "son finansal",
         ]
         if any(kw in q for kw in latest_keywords):
             return ("latest", 0)
