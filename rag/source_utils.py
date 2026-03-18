@@ -113,7 +113,8 @@ CATEGORY_DISPLAY_NAMES = {
 }
 
 
-def get_readable_source(source_file: str, category_name: str, year: int | str) -> str:
+def get_readable_source(source_file: str, category_name: str, year: int | str,
+                        title: str = "") -> str:
     """
     Convert raw filename + metadata to TCMB official naming format.
 
@@ -121,8 +122,7 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
         enf25_iii_tam.pdf → "📄 Enflasyon Raporu 2025-III"
         1b26_i.pdf → "📄 Enflasyon Raporu 2026-I"
         afiyatmart25.pdf → "📄 Aylık Fiyat Gelişmeleri (Mart 2025)"
-        en2501.pdf → "📄 Ekonomi Notu 2025/01"
-        Tam+Metin.pdf (finansal) → "📄 Finansal İstikrar Raporu (2024)"
+        en2501.pdf + title → "📄 Ekonomi Notu 2025/01 — Kredi Kartı Kullanım Eğilimleri"
     """
     if not category_name or not year:
         return f"📄 {source_file} ({year})"
@@ -142,7 +142,11 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
     elif roman:
         return f"📄 {display_name} {year}-{roman}"
     elif ekon_no:
-        return f"📄 Ekonomi Notu {ekon_no}"
+        # Ekonomi notları: show real title if available
+        note_label = f"📄 Ekonomi Notu {ekon_no}"
+        if title and "?" not in title and len(title) > 5:
+            return f"{note_label} — {title}"
+        return note_label
     elif month:
         return f"📄 {display_name} ({month} {year})"
     else:

@@ -231,7 +231,8 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
                     seen.add(key)
 
                     # Build human-readable source string
-                    source_str = get_readable_source(source_file, category, year)
+                    title = meta.get('title', '')
+                    source_str = get_readable_source(source_file, category, year, title)
                     sources.append(source_str)
 
             except Exception as e:

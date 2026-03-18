@@ -56,20 +56,32 @@ def extract_year_from_text(text: str) -> int | None:
 
 
 def find_pdf_links(soup: BeautifulSoup, base_url: str) -> list[dict]:
-    """Find all PDF links on a page."""
-    pdfs = []
+    """Find all PDF links on a page. Prefers links with real titles over icon-only links."""
+    pdf_map: dict[str, dict] = {}  # url -> best metadata
     if not soup:
-        return pdfs
+        return []
 
     for link in soup.find_all("a", href=True):
         href = link["href"]
         # Check for PDF links (direct .pdf or TCMB's WCM download pattern)
         if ".pdf" in href.lower() or "MOD=AJPERES" in href:
             full_url = urljoin(base_url, href)
-            title = link.get_text(strip=True) or unquote(href.split("/")[-1])
-            pdfs.append({"url": full_url, "title": title})
+            title = link.get_text(strip=True)
 
-    return pdfs
+            if full_url not in pdf_map:
+                # First occurrence — use whatever title we have
+                pdf_map[full_url] = {
+                    "url": full_url,
+                    "title": title or unquote(href.split("/")[-1]),
+                }
+            elif title and not pdf_map[full_url]["title"].strip():
+                # Already seen but previous had empty title — upgrade
+                pdf_map[full_url]["title"] = title
+            elif title and len(title) > len(pdf_map[full_url]["title"]):
+                # Prefer the longer (more descriptive) title
+                pdf_map[full_url]["title"] = title
+
+    return list(pdf_map.values())
 
 
 def find_subpage_links(soup: BeautifulSoup, base_url: str) -> list[str]:

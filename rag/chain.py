@@ -43,7 +43,8 @@ def format_docs(docs):
         source_file = meta.get('source', '?')
         category = meta.get('category_name', '?')
         year = meta.get('year', '?')
-        readable = get_readable_source(source_file, category, year).replace("📄 ", "")
+        title = meta.get('title', '')
+        readable = get_readable_source(source_file, category, year, title).replace("📄 ", "")
         header = f"[Kaynak: {readable}]"
         parts.append(f"{header}\n{doc.page_content}")
     return "\n\n---\n\n".join(parts)
@@ -75,21 +76,33 @@ class RAGChain:
             messages.append(AIMessage(content=ai))
         return messages
 
-    def _detect_category(self, question: str) -> str | None:
-        """Detect publication category from question, including general terms."""
+    def _detect_categories(self, question: str) -> list[str]:
+        """
+        Detect publication categories from question.
+        Returns a list — may contain multiple categories for cross-topic queries.
+        E.g., "enflasyon ve faiz ilişkisi" → ["enflasyon_raporu", "para_politikasi"]
+        """
         q = question.lower()
-        # Specific report names first
-        if "enflasyon rapor" in q:
-            return "enflasyon_raporu"
-        if "finansal istikrar" in q:
-            return "finansal_istikrar"
-        if "fiyat gelişme" in q or "aylık fiyat" in q:
-            return "aylik_fiyat"
-        if "para politika" in q or "faiz" in q or "ppk" in q:
-            return "para_politikasi"
-        if "ekonomi not" in q or "ekonomi notu" in q or "araştırma not" in q:
-            return "ekonomi_notlari"
-        return None
+        cats = []
+
+        # Each keyword group maps to a category
+        category_rules = [
+            (["enflasyon rapor"], "enflasyon_raporu"),
+            (["finansal istikrar"], "finansal_istikrar"),
+            (["fiyat gelişme", "aylık fiyat"], "aylik_fiyat"),
+            (["para politika", "ppk"], "para_politikasi"),
+            (["ekonomi not", "ekonomi notu", "araştırma not"], "ekonomi_notlari"),
+        ]
+
+        for keywords, category in category_rules:
+            if any(kw in q for kw in keywords):
+                cats.append(category)
+
+        # "faiz" alone → para_politikasi, but only if no other category detected
+        if not cats and "faiz" in q:
+            cats.append("para_politikasi")
+
+        return cats
 
     def _detect_recency(self, question: str) -> tuple[str, int] | None:
         """
@@ -177,9 +190,12 @@ class RAGChain:
         """
         # Auto-detect category only if sidebar didn't set one
         if not self._has_sidebar_category_filter(filters):
-            detected_cat = self._detect_category(question)
-            if detected_cat:
-                filters = self._merge_filters(filters, {"category": detected_cat})
+            detected_cats = self._detect_categories(question)
+            if len(detected_cats) == 1:
+                filters = self._merge_filters(filters, {"category": detected_cats[0]})
+            elif len(detected_cats) > 1:
+                # Multiple categories: use $in for cross-topic queries
+                filters = self._merge_filters(filters, {"category": {"$in": detected_cats}})
 
         # Auto-detect recency only if sidebar didn't set specific years
         if not self._has_sidebar_year_filter(filters):
