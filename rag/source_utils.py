@@ -101,6 +101,18 @@ def extract_ekonomi_notu_number(filename: str) -> str | None:
     return None
 
 
+# Fix Turkish characters in category names (stored without Turkish chars in DB)
+CATEGORY_DISPLAY_NAMES = {
+    "Finansal Istikrar Raporu": "Finansal İstikrar Raporu",
+    "Aylik Fiyat Gelismeleri": "Aylık Fiyat Gelişmeleri",
+    "Para Politikasi Metinleri": "Para Politikası Metinleri",
+    "Calisma Tebligleri": "Çalışma Tebliğleri",
+    "Ekonomi Notlari": "Ekonomi Notları",
+    "Yillik Rapor": "Yıllık Rapor",
+    "Odeme Sistemleri Raporu": "Ödeme Sistemleri Raporu",
+}
+
+
 def get_readable_source(source_file: str, category_name: str, year: int | str) -> str:
     """
     Convert raw filename + metadata to TCMB official naming format.
@@ -115,6 +127,9 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
     if not category_name or not year:
         return f"📄 {source_file} ({year})"
 
+    # Fix Turkish characters
+    display_name = CATEGORY_DISPLAY_NAMES.get(category_name, category_name)
+
     # Try to extract period info
     roman = extract_roman_numeral(source_file)
     month = extract_month(source_file)
@@ -125,13 +140,13 @@ def get_readable_source(source_file: str, category_name: str, year: int | str) -
         # Enflasyon Raporu 2026-I format
         return f"📄 Enflasyon Raporu {year}-{roman}"
     elif roman:
-        return f"📄 {category_name} {year}-{roman}"
+        return f"📄 {display_name} {year}-{roman}"
     elif ekon_no:
         return f"📄 Ekonomi Notu {ekon_no}"
     elif month:
-        return f"📄 {category_name} ({month} {year})"
+        return f"📄 {display_name} ({month} {year})"
     else:
-        return f"📄 {category_name} ({year})"
+        return f"📄 {display_name} ({year})"
 
 
 def get_source_key(source_file: str, category_name: str, year: int | str) -> str:
