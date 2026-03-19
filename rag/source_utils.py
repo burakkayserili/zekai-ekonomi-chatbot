@@ -157,7 +157,12 @@ def get_source_key(source_file: str, category_name: str, year: int | str) -> str
     """
     Create a unique key for deduplication.
     Groups all sections (1b, 2b, 3b, enf_tam, ki) of the same report together.
+    Ekonomi notları are unique per note number (not grouped by year).
     """
+    ekon_no = extract_ekonomi_notu_number(source_file)
+    if ekon_no:
+        # Each ekonomi notu is a separate publication
+        return f"ekonomi_notu_{ekon_no}"
     roman = extract_roman_numeral(source_file)
     month = extract_month(source_file)
     period = roman or month or ""

@@ -216,12 +216,12 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
                 source_docs = result["source_documents"]
 
                 # Extract source info with readable names
-                sources = []
+                source_items = []  # (year, source_str)
                 seen = set()
                 for doc in source_docs:
                     meta = doc.metadata
                     category = meta.get('category_name', '')
-                    year = meta.get('year', '')
+                    year = meta.get('year', 0)
                     source_file = meta.get('source', '')
 
                     # Deduplicate by category + year + period
@@ -233,7 +233,11 @@ if prompt := st.chat_input("Sorunuzu yazın..."):
                     # Build human-readable source string
                     title = meta.get('title', '')
                     source_str = get_readable_source(source_file, category, year, title)
-                    sources.append(source_str)
+                    source_items.append((int(year) if year else 0, source_str))
+
+                # Sort by year descending (newest first)
+                source_items.sort(key=lambda x: x[0], reverse=True)
+                sources = [s for _, s in source_items]
 
             except Exception as e:
                 answer = f"Bir hata oluştu: {str(e)}"
