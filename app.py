@@ -14,7 +14,7 @@ from rag.source_utils import get_readable_source, get_source_key
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Zekai - Ekonomi Chatbot",
-    page_icon="🧠",
+    page_icon="🏦",
     layout="centered",
 )
 
@@ -44,7 +44,7 @@ def check_password():
     if st.session_state.authenticated:
         return True
 
-    st.title("🧠 Zekai")
+    st.title("🏦 Zekai")
     st.caption("JCR-ER Ekonomik Araştırmalar ve İş Geliştirme | TCMB Yayınlarına Dayalı Ekonomi Chatbot'u")
     st.divider()
 
@@ -70,7 +70,7 @@ if APP_PASSWORD and not check_password():
     st.stop()
 
 # --- Header ---
-st.title("🧠 Zekai")
+st.title("🏦 Zekai")
 st.caption("JCR-ER Ekonomik Araştırmalar ve İş Geliştirme | TCMB Yayınlarına Dayalı Ekonomi Chatbot'u")
 
 # --- Sidebar ---
