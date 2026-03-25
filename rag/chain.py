@@ -98,8 +98,12 @@ class RAGChain:
             if any(kw in q for kw in keywords):
                 cats.append(category)
 
-        # "faiz" alone → para_politikasi, but only if no other category detected
-        if not cats and "faiz" in q:
+        # Broad terms: "enflasyon" without "rapor" → enflasyon_raporu
+        if "enflasyon" in q and "enflasyon_raporu" not in cats:
+            cats.append("enflasyon_raporu")
+
+        # "faiz" → para_politikasi
+        if "faiz" in q and "para_politikasi" not in cats:
             cats.append("para_politikasi")
 
         return cats
